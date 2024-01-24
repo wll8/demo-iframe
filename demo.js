@@ -2,7 +2,6 @@
 const express = require('express');
 const fs = require(`fs`)
 let contentWindow = fs.readFileSync(`./node_modules/iframe-resizer/js/iframeResizer.contentWindow.js`, `utf8`)
-let iframeResizer = fs.readFileSync(`./node_modules/iframe-resizer/js/iframeResizer.js`, `utf8`)
 
 const { createProxyMiddleware, responseInterceptor  } = require('http-proxy-middleware');
 
@@ -11,7 +10,7 @@ const app = express();
 // create the proxy
 /** @type {import('http-proxy-middleware/dist/types').RequestHandler<express.Request, express.Response>} */
 const exampleProxy = createProxyMiddleware({
-  target: 'http://192.168.1.191', // target host with the same base path
+  target: 'http://httpbin.org', // target host with the same base path
   changeOrigin: true, // needed for virtual hosted sites,
   selfHandleResponse: true,
   onProxyReq: (proxyReq, req, res) => {
@@ -19,27 +18,14 @@ const exampleProxy = createProxyMiddleware({
   },
   onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
     res.setHeader('test', 'b');
-    const cookie = res.getHeader(`set-cookie`)
-    res.setHeader('set-cookie', `${cookie}; SameSite=None; Secure `);
+    const cookie = `cookiecookie`
+    res.setHeader('set-cookie', `auth=${cookie}; SameSite=None; Secure `);
     res.setHeader('X-Frame-Options', `AllowAll`);
     const exchange = `[DEBUG] ${req.method} ${req.path} -> ${proxyRes.req.protocol}//${proxyRes.req.host}${proxyRes.req.path} [${proxyRes.statusCode}]`;
     console.log(exchange);
     if ((proxyRes.headers['content-type'] || ``).includes(`text/html`)) {
-      const response = responseBuffer.toString('utf8').replace(`<head>`, `
-        <head>
-        <style>
-            html, body {
-              // opacity: 0;
-              // transition: opacity 1s ease;
-            }
-            html, body {
-              width: 100%;
-              height: 100%;
-            }
-            footer {
-              display: none !important;
-            }
-        </style>
+      const response = responseBuffer.toString('utf8').replace(`</script>`, `
+        </script>
         <script>
           function injectCSS(css) {
             const style = document.createElement('style');
@@ -58,8 +44,7 @@ const exampleProxy = createProxyMiddleware({
               document.head.appendChild(script);
             })
           }
-          ;${iframeResizer}
-          ;${contentWindow}
+          ;console.log("加载了")
           ;window.iFrameResizer = {
             onMessage(js) {
               console.log("js", js)
@@ -70,10 +55,12 @@ const exampleProxy = createProxyMiddleware({
               console.log("onReady")
             }
           }
+          ;${contentWindow}
         </script>
       `).replace(/<aside([\s\S]*?)\/aside>/, '')
       return response
     }
+
     return responseBuffer;
   }),
 });
@@ -85,24 +72,12 @@ const exampleProxy = createProxyMiddleware({
 // 解决方案：把 data 转换为 json 字符串转换为 base64 放到 /auto/:base64 中的相应位置，如果 base64 有等号时删除
 // 注意：宿主页面与此页面应在同一 host 下（包括访问），否则 set-cookie 无法跨域工作
 app.use(`/auto/:base64`, async (req, res, next) => {
-  let {base64 = `ewogICJwYXRoIjogInphYmJpeC5waHAiLAogICJhY3Rpb24iOiAibWFwLnZpZXciLAogICJuYW1lIjogIkFkbWluIiwKICAicGFzc3dvcmQiOiAiemFiYml4Igp9`, path = ``, action = ``} = req.params
   let data = {
-    "path": "zabbix.php",
-    "action": "map.view",
-    "name": "",
-    "password": "",
+    "path": "/",
+    "name": "name",
+    "password": "password",
   }
-  try {
-    data = {
-      ...data,
-      ...JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'))
-    }
-  } catch (error) {
-    console.log(`参数错误`, base64)
-    res.json({})
-    return undefined
-  }
-  const url = `/${data.path}?action=${data.action}`
+  const url = data.path
   console.log(`req.data`, data)
   const html = `
     <!DOCTYPE html>
@@ -110,7 +85,7 @@ app.use(`/auto/:base64`, async (req, res, next) => {
     <head>
       <meta charset="utf-8" />
       <script>
-        fetch("/index.php", {
+        fetch("/post", {
           "headers": {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "accept-language": "zh-CN,zh;q=0.9",
@@ -134,7 +109,7 @@ app.use(`/auto/:base64`, async (req, res, next) => {
     <style>
         html, body {
           width: 100%;
-          height: 100vh;
+          // height: 100vh;
         }
     </style>
     </html>
@@ -143,3 +118,10 @@ app.use(`/auto/:base64`, async (req, res, next) => {
 })
 app.use(exampleProxy);
 app.listen(9700);
+
+const app2 = express();
+app2.use((req, res, next) => {
+  const html = fs.readFileSync(`./index.html`, `utf8`)
+  res.end(html)
+});
+app2.listen(9000);
