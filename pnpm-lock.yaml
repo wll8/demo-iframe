@@ -14,6 +14,9 @@ dependencies:
   iframe-resizer:
     specifier: ^4.3.9
     version: 4.3.9
+  jquery:
+    specifier: ^3.7.1
+    version: 3.7.1
 
 packages:
 
@@ -358,6 +361,10 @@ packages:
   /is-plain-obj@3.0.0:
     resolution: {integrity: sha512-gwsOE28k+23GP1B6vFl1oVh/WOzmawBrKwo5Ev6wMKzPkaXaCDIQKzLnvsA42DRlbVTWorkgTKIviAKCWkfUwA==}
     engines: {node: '>=10'}
+    dev: false
+
+  /jquery@3.7.1:
+    resolution: {integrity: sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==}
     dev: false
 
   /media-typer@0.3.0:
